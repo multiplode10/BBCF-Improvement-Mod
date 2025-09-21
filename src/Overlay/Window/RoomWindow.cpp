@@ -82,6 +82,9 @@ void RoomWindow::Draw()
 	if (isInMenu())
 	{
 		ImGui::VerticalSpacing(10);
+		DrawMatchmakingSettings();
+		
+		ImGui::VerticalSpacing(10);
 		DrawRoomImPlayers();
 	}
 
@@ -156,5 +159,31 @@ void RoomWindow::DrawMatchImPlayers()
 	}
 
 	ImGui::EndChild();
+	ImGui::EndGroup();
+}
+
+void RoomWindow::DrawMatchmakingSettings()
+{
+	if (!g_interfaces.pMatchmakingAPIManager)
+	{
+		return;
+	}
+
+	// Only show for ranked rooms
+	if (!g_gameVals.pRoom || g_gameVals.pRoom->roomType != RoomType_Ranked)
+	{
+		return;
+	}
+
+	ImGui::BeginGroup();
+	ImGui::TextUnformatted("Matchmaking Settings:");
+	
+	bool isRegionOnly = g_interfaces.pMatchmakingAPIManager->GetRegionOnlyMode();
+	if (ImGui::Checkbox("Region-Only Matchmaking", &isRegionOnly))
+	{
+		g_interfaces.pMatchmakingAPIManager->SetRegionOnlyMode(isRegionOnly);
+	}
+	ImGui::HoverTooltip("Only match with players in your region");
+	
 	ImGui::EndGroup();
 }

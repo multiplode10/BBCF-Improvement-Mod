@@ -10,6 +10,15 @@ public:
 	~SteamMatchmakingWrapper();
 	
 	ISteamMatchmaking* m_SteamMatchmaking;
+	
+	// Lobby tracking for matchmaking API
+	uint64_t GetCurrentLobbyId() const { return m_currentLobbyId; }
+
+private:
+	uint64_t m_currentLobbyId;
+	SteamAPICall_t m_pendingLobbyCreate;
+
+public:
 
 	int GetFavoriteGameCount();
 	bool GetFavoriteGame(int iGame, AppId_t *pnAppID, uint32 *pnIP, uint16 *pnConnPort, uint16 *pnQueryPort, uint32 *punFlags, uint32 *pRTime32LastPlayedOnServer);

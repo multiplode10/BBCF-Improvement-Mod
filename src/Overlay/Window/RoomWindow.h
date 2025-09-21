@@ -23,6 +23,7 @@ private:
 	void ShowClickableSteamUser(const char* playerName, const CSteamID& steamId) const;
 	void DrawRoomImPlayers();
 	void DrawMatchImPlayers();
+	void DrawMatchmakingSettings();
 
 	const std::string m_origWindowTitle;
 };

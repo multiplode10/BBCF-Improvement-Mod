@@ -1,5 +1,8 @@
 #pragma once
 
+// Forward declarations
+class MatchmakingAPIManager;
+
 #include "CustomGameMode/GameModeManager.h"
 #include "D3D9EXWrapper/d3d9.h"
 #include "D3D9EXWrapper/ID3D9EXWrapper_Device.h"
@@ -33,6 +36,7 @@ struct interfaces_t
 	NetworkManager* pNetworkManager;
 	RoomManager* pRoomManager;
 	SteamApiHelper* pSteamApiHelper;
+	MatchmakingAPIManager* pMatchmakingAPIManager;
 
 	PaletteManager* pPaletteManager;
 	OnlinePaletteManager* pOnlinePaletteManager;

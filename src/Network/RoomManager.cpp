@@ -1,6 +1,7 @@
 #include "RoomManager.h"
 
 #include "Core/logger.h"
+#include "Core/interfaces.h"
 
 
 
@@ -11,7 +12,14 @@ RoomManager::RoomManager(NetworkManager* pNetworkManager, ISteamFriends* pSteamF
 	m_imPlayers.resize(8);
 }
 
-RoomManager::~RoomManager() {}
+RoomManager::~RoomManager() 
+{
+	// Notify matchmaking API about room destruction
+	if (g_interfaces.pMatchmakingAPIManager)
+	{
+		g_interfaces.pMatchmakingAPIManager->OnRoomDestroyed();
+	}
+}
 
 void RoomManager::SendAnnounce()
 {
@@ -63,6 +71,12 @@ void RoomManager::JoinRoom(Room* pRoom)
 	AddIMPlayerToRoom(thisPlayer);
 
 	SendAnnounce();
+
+	// Notify matchmaking API about room creation
+	if (g_interfaces.pMatchmakingAPIManager)
+	{
+		g_interfaces.pMatchmakingAPIManager->OnRoomCreated();
+	}
 }
 
 bool RoomManager::IsRoomFunctional() const

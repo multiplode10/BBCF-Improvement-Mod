@@ -86,6 +86,11 @@ void MatchState::OnMatchEnd()
 	//resets the upload veto
 	g_interfaces.pReplayUploadManager->OnMatchEnd();
 	
+	// Notify matchmaking API about match end
+	if (g_interfaces.pMatchmakingAPIManager)
+	{
+		g_interfaces.pMatchmakingAPIManager->OnMatchEnd();
+	}
 }
 
 void MatchState::OnUpdate()

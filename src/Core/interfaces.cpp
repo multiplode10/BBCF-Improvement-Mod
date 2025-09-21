@@ -2,6 +2,7 @@
 
 #include "logger.h"
 #include "utils.h"
+#include "Network/MatchmakingAPIManager.h"
 
 interfaces_t g_interfaces = {};
 gameProc_t g_gameProc = {};
@@ -66,12 +67,18 @@ void InitManagers()
 	{
 		g_interfaces.pReplayUploadManager = new ReplayUploadManager(g_interfaces.pRoomManager);
 	}
+
+	if (!g_interfaces.pMatchmakingAPIManager)
+	{
+		g_interfaces.pMatchmakingAPIManager = new MatchmakingAPIManager();
+	}
 }
 
 void CleanupInterfaces()
 {
 	LOG(1, "CleanupInterfaces\n");
 
+	SAFE_DELETE(g_interfaces.pMatchmakingAPIManager);
 	SAFE_DELETE(g_interfaces.pNetworkManager);
 	SAFE_DELETE(g_interfaces.pPaletteManager);
 	SAFE_DELETE(g_interfaces.pRoomManager);

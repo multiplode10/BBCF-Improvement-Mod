@@ -6,6 +6,7 @@
 #include "Game/gamestates.h"
 
 SteamMatchmakingWrapper::SteamMatchmakingWrapper(ISteamMatchmaking** pSteamMatchmaking)
+	: m_currentLobbyId(0), m_pendingLobbyCreate(k_uAPICallInvalid)
 {
 	LOG(2, "SteamMatchmakingWrapper\n");
 	LOG(2, "\t- before: *pSteamMatchmaking: 0x%p, thispointer: 0x%p\n", *pSteamMatchmaking, this);
@@ -100,19 +101,47 @@ CSteamID SteamMatchmakingWrapper::GetLobbyByIndex(int iLobby)
 SteamAPICall_t SteamMatchmakingWrapper::CreateLobby(ELobbyType eLobbyType, int cMaxMembers)
 {
 	LOG(7, "SteamMatchmakingWrapper CreateLobby\n");
-	return m_SteamMatchmaking->CreateLobby(eLobbyType, cMaxMembers);
+	SteamAPICall_t result = m_SteamMatchmaking->CreateLobby(eLobbyType, cMaxMembers);
+	
+	// Store the API call for callback tracking
+	m_pendingLobbyCreate = result;
+	
+	return result;
 }
 
 SteamAPICall_t SteamMatchmakingWrapper::JoinLobby(CSteamID steamIDLobby)
 {
 	LOG(7, "SteamMatchmakingWrapper JoinLobby\n");
 	LOG(7, "\t- steamIDLobby: %llu\n", steamIDLobby.ConvertToUint64());
+	
+	// Store the current lobby ID
+	m_currentLobbyId = steamIDLobby.ConvertToUint64();
+	
+	// Notify matchmaking API
+	if (g_interfaces.pMatchmakingAPIManager)
+	{
+		g_interfaces.pMatchmakingAPIManager->OnSteamLobbyCreated(m_currentLobbyId);
+	}
+	
 	return m_SteamMatchmaking->JoinLobby(steamIDLobby);
 }
 
 void SteamMatchmakingWrapper::LeaveLobby(CSteamID steamIDLobby)
 {
 	LOG(7, "SteamMatchmakingWrapper LeaveLobby\n");
+	
+	// Clear current lobby ID
+	if (m_currentLobbyId == steamIDLobby.ConvertToUint64())
+	{
+		m_currentLobbyId = 0;
+		
+		// Notify matchmaking API
+		if (g_interfaces.pMatchmakingAPIManager)
+		{
+			g_interfaces.pMatchmakingAPIManager->OnPlayerLeft();
+		}
+	}
+	
 	return m_SteamMatchmaking->LeaveLobby(steamIDLobby);
 }
 
