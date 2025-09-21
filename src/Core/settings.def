@@ -25,3 +25,12 @@ SETTING(std::string, uploadReplayDataHost, "UploadReplayDataHost", "50.118.225.1
 SETTING(std::string, uploadReplayDataEndpoint, "UploadReplayDataEndpoint", "/upload");
 SETTING(int, uploadReplayDataPort, "UploadReplayDataPort", "5000");
 // SETTING(std::string, replayDatabaseFrontendUrl "ReplayDatabaseFrontendUrl", "http://50.118.225.175:2000/");
+
+// Matchmaking API Settings
+SETTING(bool, enableMatchmakingAPI, "EnableMatchmakingAPI", "1");
+SETTING(std::string, matchmakingAPIHost, "MatchmakingAPIHost", "localhost:8080");
+SETTING(std::string, matchmakingRoomsEndpoint, "MatchmakingRoomsEndpoint", "/api/rooms");
+SETTING(std::string, matchmakingPlayerEndpoint, "MatchmakingPlayerEndpoint", "/api/player");
+SETTING(std::string, playerRegion, "PlayerRegion", "NA");
+SETTING(int, playerRatingFallback, "PlayerRatingFallback", "1300");
+SETTING(bool, regionOnlyDefault, "RegionOnlyDefault", "0");

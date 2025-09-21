@@ -14,7 +14,7 @@ struct RoomData
     int open_slots;
     std::string steam_url;
 
-    RoomData() : host_steamid64(0), is_region_only(false), target_rating(1500), capacity(1), open_slots(1) {}
+    RoomData() : host_steamid64(0), is_region_only(false), target_rating(1300), capacity(1), open_slots(1) {}
 };
 
 struct APIResponse
@@ -61,6 +61,7 @@ public:
     // Helper functions to get game state
     std::string GetPlayerRegionFromGame();
     int GetPlayerRatingFromGame();
+    int GetPlayerRatingFromAPI(uint64_t steamId);
     std::string GetGameModeFromRoom();
     uint64_t GetPlayerSteamId();
     std::string GenerateRoomId();
@@ -86,7 +87,12 @@ private:
     RoomData m_currentRoomData;
     uint64_t m_currentLobbyId;
 
+    // Settings initialization
+    void InitializeFromSettings();
+    
     // API configuration
-    static const std::string API_BASE_URL;
-    static const std::string API_ROOMS_ENDPOINT;
+    std::string m_apiBaseURL;
+    std::string m_apiRoomsEndpoint;
+    std::string m_apiPlayerEndpoint;
+    bool m_apiEnabled;
 };

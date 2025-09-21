@@ -3,6 +3,7 @@
 #include "Core/interfaces.h"
 #include "Core/logger.h"
 #include "Core/utils.h"
+#include "Core/Settings.h"
 #include "Overlay/Logger/ImGuiLogger.h"
 #include "Game/Room/Room.h"
 
@@ -13,14 +14,11 @@
 
 #pragma comment(lib, "wininet.lib")
 
-// API Configuration
-const std::string MatchmakingAPIManager::API_BASE_URL = "http://localhost:8080";
-const std::string MatchmakingAPIManager::API_ROOMS_ENDPOINT = "/api/rooms";
-
 MatchmakingAPIManager::MatchmakingAPIManager()
-    : m_isRegionOnly(false), m_playerRegion("NA"), m_playerRating(1500), m_gameMode("FT3"), m_currentLobbyId(0)
+    : m_isRegionOnly(false), m_playerRegion("NA"), m_playerRating(1300), m_gameMode("FT3"), m_currentLobbyId(0)
 {
     LOG(2, "MatchmakingAPIManager::MatchmakingAPIManager\n");
+    InitializeFromSettings();
 }
 
 MatchmakingAPIManager::~MatchmakingAPIManager()
@@ -39,7 +37,7 @@ APIResponse MatchmakingAPIManager::CreateOrUpdateRoom(const RoomData& roomData)
     LOG(2, "MatchmakingAPIManager::CreateOrUpdateRoom\n");
 
     std::string jsonData = CreateRoomJSON(roomData);
-    APIResponse response = SendHTTPRequest("POST", API_ROOMS_ENDPOINT, jsonData);
+    APIResponse response = SendHTTPRequest("POST", m_apiRoomsEndpoint, jsonData);
 
     if (response.success)
     {
@@ -64,7 +62,7 @@ APIResponse MatchmakingAPIManager::DeleteRoom(const std::string& roomId)
         return APIResponse(false, 0, "", "Room ID is empty");
     }
 
-    std::string endpoint = API_ROOMS_ENDPOINT + "/" + roomId;
+    std::string endpoint = m_apiRoomsEndpoint + "/" + roomId;
     APIResponse response = SendHTTPRequest("DELETE", endpoint);
 
     if (response.success)
@@ -100,9 +98,9 @@ void MatchmakingAPIManager::OnRoomCreated()
 {
     LOG(2, "MatchmakingAPIManager::OnRoomCreated\n");
 
-    if (!ShouldCreateAPIRoom())
+    if (!m_apiEnabled || !ShouldCreateAPIRoom())
     {
-        LOG(2, "MatchmakingAPIManager::OnRoomCreated - Not a ranked room, skipping API call\n");
+        LOG(2, "MatchmakingAPIManager::OnRoomCreated - API disabled or not a ranked room, skipping API call\n");
         return;
     }
 
@@ -155,18 +153,83 @@ void MatchmakingAPIManager::OnPlayerLeft()
     }
 }
 
+int MatchmakingAPIManager::GetPlayerRatingFromAPI(uint64_t steamId)
+{
+    if (steamId == 0 || !m_apiEnabled)
+    {
+        return 0;
+    }
+    
+    // Build endpoint for player history/rating
+    std::stringstream endpoint;
+    endpoint << m_apiPlayerEndpoint << "/" << steamId << "/history";
+    
+    APIResponse response = SendHTTPRequest("GET", endpoint.str());
+    
+    if (response.success && !response.response.empty())
+    {
+        // Simple JSON parsing to extract rating
+        // Look for "rating": followed by a number
+        size_t ratingPos = response.response.find("\"rating\":");
+        if (ratingPos != std::string::npos)
+        {
+            size_t numberStart = response.response.find_first_of("0123456789", ratingPos);
+            if (numberStart != std::string::npos)
+            {
+                size_t numberEnd = response.response.find_first_not_of("0123456789", numberStart);
+                if (numberEnd == std::string::npos)
+                {
+                    numberEnd = response.response.length();
+                }
+                
+                std::string ratingStr = response.response.substr(numberStart, numberEnd - numberStart);
+                try 
+                {
+                    int rating = std::stoi(ratingStr);
+                    if (rating > 0 && rating <= 9999) // Sanity check
+                    {
+                        LOG(2, "MatchmakingAPIManager::GetPlayerRatingFromAPI - Got rating %d for SteamID %llu\n", rating, steamId);
+                        return rating;
+                    }
+                }
+                catch (...)
+                {
+                    LOG(2, "MatchmakingAPIManager::GetPlayerRatingFromAPI - Failed to parse rating\n");
+                }
+            }
+        }
+    }
+    else
+    {
+        LOG(7, "MatchmakingAPIManager::GetPlayerRatingFromAPI - API call failed: %s\n", response.errorMessage.c_str());
+    }
+    
+    return 0; // Return 0 if API call failed
+}
+
 std::string MatchmakingAPIManager::GetPlayerRegionFromGame()
 {
-    // For now, return the configured region
-    // TODO: Implement actual region detection from game/Steam
+    // Return the configured region from settings
     return m_playerRegion;
 }
 
 int MatchmakingAPIManager::GetPlayerRatingFromGame()
 {
-    // For now, return the configured rating
-    // TODO: Implement actual rating/BP extraction from game memory
-    return m_playerRating;
+    // Try to get rating from API first
+    uint64_t steamId = GetPlayerSteamId();
+    if (steamId != 0)
+    {
+        int apiRating = GetPlayerRatingFromAPI(steamId);
+        if (apiRating > 0)
+        {
+            LOG(2, "MatchmakingAPIManager::GetPlayerRatingFromGame - Using API rating: %d\n", apiRating);
+            return apiRating;
+        }
+    }
+    
+    // For ranked mode, always use 1300 if no API rating available
+    LOG(2, "MatchmakingAPIManager::GetPlayerRatingFromGame - Using default ranked rating: 1300\n");
+    return 1300;
 }
 
 std::string MatchmakingAPIManager::GetGameModeFromRoom()
@@ -291,7 +354,7 @@ APIResponse MatchmakingAPIManager::SendHTTPRequest(const std::string& method, co
 {
     LOG(2, "MatchmakingAPIManager::SendHTTPRequest: %s %s\n", method.c_str(), endpoint.c_str());
 
-    std::wstring wUrl = StringToWString(API_BASE_URL + endpoint);
+    std::wstring wUrl = StringToWString(m_apiBaseURL + endpoint);
     std::wstring wMethod = StringToWString(method);
 
     HINTERNET hInternet = nullptr;
@@ -447,4 +510,24 @@ std::wstring MatchmakingAPIManager::StringToWString(const std::string& str)
     std::wstring wstrTo(size_needed, 0);
     MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
     return wstrTo;
+}
+
+void MatchmakingAPIManager::InitializeFromSettings()
+{
+    LOG(2, "MatchmakingAPIManager::InitializeFromSettings\n");
+    
+    // Read settings from settings.ini - use Settings::settingsIni directly
+    m_apiEnabled = Settings::settingsIni.enableMatchmakingAPI;
+    m_apiBaseURL = "http://" + Settings::settingsIni.matchmakingAPIHost;
+    m_apiRoomsEndpoint = Settings::settingsIni.matchmakingRoomsEndpoint;
+    m_apiPlayerEndpoint = Settings::settingsIni.matchmakingPlayerEndpoint;
+    m_playerRegion = Settings::settingsIni.playerRegion;
+    m_playerRating = Settings::settingsIni.playerRatingFallback;
+    m_isRegionOnly = Settings::settingsIni.regionOnlyDefault;
+    
+    LOG(2, "MatchmakingAPIManager settings:\n");
+    LOG(2, "\t- API Enabled: %d\n", m_apiEnabled);
+    LOG(2, "\t- API Base URL: %s\n", m_apiBaseURL.c_str());
+    LOG(2, "\t- Player Region: %s\n", m_playerRegion.c_str());
+    LOG(2, "\t- Rating Default: %d\n", m_playerRating);
 }

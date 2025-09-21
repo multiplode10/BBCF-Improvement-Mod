@@ -29,9 +29,17 @@ class MatchmakingAPIHandler(BaseHTTPRequestHandler):
 
         if parsed_path.path == '/api/rooms' or parsed_path.path == '/api/matches/active':
             self._handle_list_rooms()
-        elif parsed_path.path.startswith('/api/rooms/'):
+        if parsed_path.path.startswith('/api/rooms/'):
             room_id = parsed_path.path.split('/')[-1]
             self._handle_get_room(room_id)
+        elif parsed_path.path.startswith('/api/player/') and parsed_path.path.endswith('/history'):
+            # Extract steam_id from path like /api/player/76561198123456789/history
+            path_parts = parsed_path.path.split('/')
+            if len(path_parts) >= 4:
+                steam_id = path_parts[3]
+                self._handle_get_player_rating(steam_id)
+            else:
+                self._send_error(400, "Invalid player endpoint format")
         else:
             self._send_error(404, "Endpoint not found")
 
@@ -149,6 +157,59 @@ class MatchmakingAPIHandler(BaseHTTPRequestHandler):
             else:
                 self._send_error(404, f"Room not found: {room_id}")
 
+    def _handle_get_player_rating(self, steam_id):
+        """Return player rating and history"""
+        try:
+            # Validate steam_id (should be numeric for SteamID64)
+            if steam_id.isdigit():
+                steam_id_int = int(steam_id)
+
+                # Mock player data based on SteamID
+                # Use modulo to create different ratings for different players
+                base_rating = 1200 + (steam_id_int % 1000)
+                matches_played = 20 + (steam_id_int % 50)
+                wins = int(matches_played * 0.6)  # 60% win rate
+                losses = matches_played - wins
+
+                player_data = {
+                    "player_id": steam_id,
+                    "steamid64": steam_id_int,
+                    "rating": base_rating,
+                    "matches_played": matches_played,
+                    "wins": wins,
+                    "losses": losses,
+                    "region": "NA",
+                    "last_played": "2024-01-15T10:30:00Z",
+                    "rank": "Intermediate" if base_rating < 1600 else "Advanced"
+                }
+
+                self._send_json_response(200, player_data)
+
+                print(f"[{self._timestamp()}] GET PLAYER RATING - SteamID: {steam_id}")
+                print(f"  Rating: {base_rating}")
+                print(f"  Matches: {matches_played} ({wins}W/{losses}L)")
+
+            else:
+                # Handle UUID format or other identifiers
+                player_data = {
+                    "player_id": steam_id,
+                    "rating": 1500,
+                    "matches_played": 25,
+                    "wins": 15,
+                    "losses": 10,
+                    "region": "NA",
+                    "last_played": "2024-01-15T10:30:00Z",
+                    "rank": "Intermediate"
+                }
+
+                self._send_json_response(200, player_data)
+
+                print(f"[{self._timestamp()}] GET PLAYER RATING - Player ID: {steam_id}")
+                print(f"  Rating: 1500 (default for non-numeric ID)")
+
+        except Exception as e:
+            self._send_error(500, f"Error retrieving player data: {str(e)}")
+
     def _send_json_response(self, status_code, data):
         """Send JSON response"""
         self.send_response(status_code)
@@ -226,9 +287,11 @@ def print_startup_info():
     print("  POST /api/rooms         - Create or update room")
     print("  DELETE /api/rooms/{id}  - Delete specific room")
     print("  GET  /api/matches/active - Alternative endpoint for room list")
+    print("  GET  /api/player/{steamid}/history - Get player rating and stats")
     print("")
     print("Testing with curl:")
     print("  curl http://localhost:8080/api/rooms")
+    print("  curl http://localhost:8080/api/player/76561198123456789/history")
     print("")
     print("Integration testing:")
     print("  1. Start this server")
